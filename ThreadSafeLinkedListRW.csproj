@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>ThreadSafeLinkedListRW</AssemblyName>
+    <RootNamespace>ThreadSafeLinkedList</RootNamespace>
+    <Authors>Caleb Seelhoff</Authors>
+    <Company>Caleb Seelhoff</Company>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>majorhoff.ThreadSafeLinkedListRW</PackageId>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>ThreadSafeLinkedList, ThreadSafeLinkedListRW, LinkedList, Thread, Safe, List, RimWorld, Scribe_Collections, Scribe, Collections</PackageTags>
+    <Version>1.3.0</Version>
+    <AssemblyVersion>1.3.0.0</AssemblyVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.3.3087" />
+    <PackageReference Include="Lib.Harmony" Version="2.1.1" />
+    <PackageReference Include="majorhoff.ThreadSafeLinkedList" Version="1.0.2" />
+  </ItemGroup>
+
+</Project>
