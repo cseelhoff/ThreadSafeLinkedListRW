@@ -1,186 +1,203 @@
-﻿using RimWorld.Planet;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Xml;
+using RimWorld.Planet;
+using ThreadSafeLinkedList;
 using Verse;
 using static HarmonyLib.AccessTools;
 
-namespace ThreadSafeLinkedList
+public static class Scribe_Collections_Patch
 {
-    public static class Scribe_Collections_Patch
+    public static FieldRef<CrossRefHandler, LoadedObjectDirectory> loadedObjectDirectoryRef = FieldRefAccess<CrossRefHandler, LoadedObjectDirectory>("loadedObjectDirectory");
+
+    public static void Look1<T>(ref ThreadSafeLinkedList<T> list, string label, LookMode lookMode = LookMode.Undefined, params object[] ctorArgs)
     {
-        public static void Look1<T>(ref ThreadSafeLinkedList<T> list, string label, LookMode lookMode = LookMode.Undefined, params object[] ctorArgs)
-        {
-            Look(ref list, saveDestroyedThings: false, label, lookMode, ctorArgs);
-        }
+        Look(ref list, saveDestroyedThings: false, label, lookMode, ctorArgs);
+    }
 
-        public static void Look2<T>(ref ThreadSafeLinkedList<T> list, bool saveDestroyedThings, string label, LookMode lookMode = LookMode.Undefined, params object[] ctorArgs)
-        {
-            Look(ref list, saveDestroyedThings: false, label, lookMode, ctorArgs);
-        }
+    public static void Look2<T>(ref ThreadSafeLinkedList<T> list, bool saveDestroyedThings, string label, LookMode lookMode = LookMode.Undefined, params object[] ctorArgs)
+    {
+        Look(ref list, saveDestroyedThings: false, label, lookMode, ctorArgs);
+    }
 
-        public static void Look<T>(ref ThreadSafeLinkedList<T> list, string label, LookMode lookMode = LookMode.Undefined, params object[] ctorArgs)
-        {
-            Look2(ref list, saveDestroyedThings: false, label, lookMode, ctorArgs);
-        }
+    public static void Look<T>(ref ThreadSafeLinkedList<T> list, string label, LookMode lookMode = LookMode.Undefined, params object[] ctorArgs)
+    {
+        Look2(ref list, saveDestroyedThings: false, label, lookMode, ctorArgs);
+    }
 
-        public static void Look<T>(ref ThreadSafeLinkedList<T> list, bool saveDestroyedThings, string label, LookMode lookMode = LookMode.Undefined, params object[] ctorArgs)
+    public static void Look<T>(ref ThreadSafeLinkedList<T> list, bool saveDestroyedThings, string label, LookMode lookMode = LookMode.Undefined, params object[] ctorArgs)
+    {
+        if (lookMode == LookMode.Undefined && !Scribe_Universal.TryResolveLookMode(typeof(T), out lookMode))
         {
-            if (lookMode == LookMode.Undefined && !Scribe_Universal.TryResolveLookMode(typeof(T), out lookMode))
+            Log.Error(string.Concat("LookList call with a list of ", typeof(T), " must have lookMode set explicitly."));
+            return;
+        }
+        if (Scribe.EnterNode(label))
+        {
+            try
             {
-                Log.Error(string.Concat("LookList call with a list of ", typeof(T), " must have lookMode set explicitly."));
-            }
-            else if (Scribe.EnterNode(label))
-            {
-                try
+                if (Scribe.mode == LoadSaveMode.Saving)
                 {
-                    if (Scribe.mode == LoadSaveMode.Saving)
+                    if (list != null)
                     {
-                        if (list == null)
-                        {
-                            Scribe.saver.WriteAttribute("IsNull", "True");
-                            return;
-                        }
-                        foreach (T item8 in list)
+                        foreach (T item in list)
                         {
                             switch (lookMode)
                             {
                                 case LookMode.Value:
                                     {
-                                        T value5 = item8;
+                                        T value5 = item;
                                         Scribe_Values.Look(ref value5, "li", default(T), forceSave: true);
                                         break;
                                     }
                                 case LookMode.LocalTargetInfo:
                                     {
-                                        LocalTargetInfo value4 = (LocalTargetInfo)(object)item8;
+                                        LocalTargetInfo value4 = (LocalTargetInfo)(object)item;
                                         Scribe_TargetInfo.Look(ref value4, saveDestroyedThings, "li");
                                         break;
                                     }
                                 case LookMode.TargetInfo:
                                     {
-                                        TargetInfo value3 = (TargetInfo)(object)item8;
+                                        TargetInfo value3 = (TargetInfo)(object)item;
                                         Scribe_TargetInfo.Look(ref value3, saveDestroyedThings, "li");
                                         break;
                                     }
                                 case LookMode.GlobalTargetInfo:
                                     {
-                                        GlobalTargetInfo value2 = (GlobalTargetInfo)(object)item8;
+                                        GlobalTargetInfo value2 = (GlobalTargetInfo)(object)item;
                                         Scribe_TargetInfo.Look(ref value2, saveDestroyedThings, "li");
                                         break;
                                     }
                                 case LookMode.Def:
                                     {
-                                        Def value = (Def)(object)item8;
+                                        Def value = (Def)(object)item;
                                         Scribe_Defs.Look(ref value, "li");
                                         break;
                                     }
                                 case LookMode.BodyPart:
                                     {
-                                        BodyPartRecord part = (BodyPartRecord)(object)item8;
+                                        BodyPartRecord part = (BodyPartRecord)(object)item;
                                         Scribe_BodyParts.Look(ref part, "li");
                                         break;
                                     }
                                 case LookMode.Deep:
                                     {
-                                        T target = item8;
+                                        T target = item;
                                         Scribe_Deep.Look(ref target, saveDestroyedThings, "li", ctorArgs);
                                         break;
                                     }
                                 case LookMode.Reference:
                                     {
-                                        ILoadReferenceable refee = (ILoadReferenceable)(object)item8;
+                                        ILoadReferenceable refee = (ILoadReferenceable)(object)item;
                                         Scribe_References.Look(ref refee, "li", saveDestroyedThings);
                                         break;
                                     }
                             }
                         }
+                        return;
                     }
-                    else if (Scribe.mode == LoadSaveMode.LoadingVars)
+                    Scribe.saver.WriteAttribute("IsNull", "True");
+                }
+                else if (Scribe.mode == LoadSaveMode.LoadingVars)
+                {
+                    XmlNode curXmlParent = Scribe.loader.curXmlParent;
+                    XmlAttribute xmlAttribute = curXmlParent.Attributes["IsNull"];
+                    if (xmlAttribute != null && xmlAttribute.Value.ToLower() == "true")
                     {
-                        XmlNode curXmlParent = Scribe.loader.curXmlParent;
-                        XmlAttribute xmlAttribute = curXmlParent.Attributes["IsNull"];
-                        if (xmlAttribute != null && xmlAttribute.Value.ToLower() == "true")
+                        if (lookMode == LookMode.Reference)
                         {
-                            if (lookMode == LookMode.Reference)
-                            {
-                                Scribe.loader.crossRefs.loadIDs.RegisterLoadIDListReadFromXml(null, null);
-                            }
-                            list = null;
-                            return;
+                            Scribe.loader.crossRefs.loadIDs.RegisterLoadIDListReadFromXml(null, null);
                         }
+                        list = null;
+                    }
+                    else
+                    {
                         switch (lookMode)
                         {
                             case LookMode.Value:
                                 list = new ThreadSafeLinkedList<T>(curXmlParent.ChildNodes.Count);
-                                foreach (XmlNode childNode in curXmlParent.ChildNodes)
                                 {
-                                    T item = ScribeExtractor.ValueFromNode(childNode, default(T));
-                                    list.Add(item);
+                                    foreach (XmlNode childNode in curXmlParent.ChildNodes)
+                                    {
+                                        T val2 = ScribeExtractor.ValueFromNode(childNode, default(T));
+                                        list.Add(val2);
+                                    }
+                                    break;
                                 }
-                                break;
                             case LookMode.Deep:
                                 list = new ThreadSafeLinkedList<T>(curXmlParent.ChildNodes.Count);
-                                foreach (XmlNode childNode2 in curXmlParent.ChildNodes)
                                 {
-                                    T item7 = ScribeExtractor.SaveableFromNode<T>(childNode2, ctorArgs);
-                                    list.Add(item7);
+                                    foreach (XmlNode childNode2 in curXmlParent.ChildNodes)
+                                    {
+                                        T val8 = ScribeExtractor.SaveableFromNode<T>(childNode2, ctorArgs);
+                                        list.Add(val8);
+                                    }
+                                    break;
                                 }
-                                break;
                             case LookMode.Def:
                                 list = new ThreadSafeLinkedList<T>(curXmlParent.ChildNodes.Count);
-                                foreach (XmlNode childNode3 in curXmlParent.ChildNodes)
                                 {
-                                    T item6 = ScribeExtractor.DefFromNodeUnsafe<T>(childNode3);
-                                    list.Add(item6);
+                                    foreach (XmlNode childNode3 in curXmlParent.ChildNodes)
+                                    {
+                                        T val7 = ScribeExtractor.DefFromNodeUnsafe<T>(childNode3);
+                                        list.Add(val7);
+                                    }
+                                    break;
                                 }
-                                break;
                             case LookMode.BodyPart:
                                 {
                                     list = new ThreadSafeLinkedList<T>(curXmlParent.ChildNodes.Count);
                                     int num4 = 0;
-                                    foreach (XmlNode childNode4 in curXmlParent.ChildNodes)
                                     {
-                                        T item5 = (T)(object)ScribeExtractor.BodyPartFromNode(childNode4, num4.ToString(), null);
-                                        list.Add(item5);
-                                        num4++;
+                                        foreach (XmlNode childNode4 in curXmlParent.ChildNodes)
+                                        {
+                                            T val6 = (T)(object)ScribeExtractor.BodyPartFromNode(childNode4, num4.ToString(), null);
+                                            list.Add(val6);
+                                            num4++;
+                                        }
+                                        break;
                                     }
-                                    break;
                                 }
                             case LookMode.LocalTargetInfo:
                                 {
                                     list = new ThreadSafeLinkedList<T>(curXmlParent.ChildNodes.Count);
                                     int num3 = 0;
-                                    foreach (XmlNode childNode5 in curXmlParent.ChildNodes)
                                     {
-                                        T item4 = (T)(object)ScribeExtractor.LocalTargetInfoFromNode(childNode5, num3.ToString(), LocalTargetInfo.Invalid);
-                                        list.Add(item4);
-                                        num3++;
+                                        foreach (XmlNode childNode5 in curXmlParent.ChildNodes)
+                                        {
+                                            T val5 = (T)(object)ScribeExtractor.LocalTargetInfoFromNode(childNode5, num3.ToString(), LocalTargetInfo.Invalid);
+                                            list.Add(val5);
+                                            num3++;
+                                        }
+                                        break;
                                     }
-                                    break;
                                 }
                             case LookMode.TargetInfo:
                                 {
                                     list = new ThreadSafeLinkedList<T>(curXmlParent.ChildNodes.Count);
                                     int num2 = 0;
-                                    foreach (XmlNode childNode6 in curXmlParent.ChildNodes)
                                     {
-                                        T item3 = (T)(object)ScribeExtractor.TargetInfoFromNode(childNode6, num2.ToString(), TargetInfo.Invalid);
-                                        list.Add(item3);
-                                        num2++;
+                                        foreach (XmlNode childNode6 in curXmlParent.ChildNodes)
+                                        {
+                                            T val4 = (T)(object)ScribeExtractor.TargetInfoFromNode(childNode6, num2.ToString(), TargetInfo.Invalid);
+                                            list.Add(val4);
+                                            num2++;
+                                        }
+                                        break;
                                     }
-                                    break;
                                 }
                             case LookMode.GlobalTargetInfo:
                                 {
                                     list = new ThreadSafeLinkedList<T>(curXmlParent.ChildNodes.Count);
                                     int num = 0;
-                                    foreach (XmlNode childNode7 in curXmlParent.ChildNodes)
                                     {
-                                        T item2 = (T)(object)ScribeExtractor.GlobalTargetInfoFromNode(childNode7, num.ToString(), GlobalTargetInfo.Invalid);
-                                        list.Add(item2);
-                                        num++;
+                                        foreach (XmlNode childNode7 in curXmlParent.ChildNodes)
+                                        {
+                                            T val3 = (T)(object)ScribeExtractor.GlobalTargetInfoFromNode(childNode7, num.ToString(), GlobalTargetInfo.Invalid);
+                                            list.Add(val3);
+                                            num++;
+                                        }
+                                        break;
                                     }
-                                    break;
                                 }
                             case LookMode.Reference:
                                 {
@@ -194,120 +211,107 @@ namespace ThreadSafeLinkedList
                                 }
                         }
                     }
-                    else
+                }
+                else if (Scribe.mode == LoadSaveMode.ResolvingCrossRefs)
+                {
+                    switch (lookMode)
                     {
-                        if (Scribe.mode != LoadSaveMode.ResolvingCrossRefs)
-                        {
-                            return;
-                        }
-                        switch (lookMode)
-                        {
-                            case LookMode.Reference:
-                                list = TakeResolvedRefList<T>(Scribe.loader.crossRefs, "");
-                                break;
-                            case LookMode.LocalTargetInfo:
-                                if (list != null)
+                        case LookMode.Reference:
+                            list = TakeResolvedRefList<T>(Scribe.loader.crossRefs, "");
+                            break;
+                        case LookMode.LocalTargetInfo:
+                            if (list != null)
+                            {
+                                int num6 = 0;
+                                lock (list)
                                 {
-                                    //for (int j = 0; j < list.Count; j++)
-                                    //{
-                                    //    list[j] = (T)(object)ScribeExtractor.ResolveLocalTargetInfo((LocalTargetInfo)(object)list[j], j.ToString());
-                                    //}
-                                    int j = 0;
-                                    lock (list)
+                                    ThreadSafeNode<T> val10 = list.firstNode;
+                                    while (val10 != null)
                                     {
-                                        ThreadSafeNode<T> currentNode = list.firstNode;
-                                        while(currentNode != null)
-                                        {
-                                            currentNode.value = (T)(object)ScribeExtractor.ResolveLocalTargetInfo((LocalTargetInfo)(object)currentNode.value, j.ToString());
-                                            currentNode = currentNode.nextNode;
-                                            j++;
-                                        }
+                                        val10.value = (T)(object)ScribeExtractor.ResolveLocalTargetInfo((LocalTargetInfo)(object)val10.value, num6.ToString());
+                                        val10 = val10.nextNode;
+                                        num6++;
                                     }
+                                    break;
                                 }
-                                break;
-                            case LookMode.TargetInfo:
-                                if (list != null)
+                            }
+                            break;
+                        case LookMode.TargetInfo:
+                            if (list != null)
+                            {
+                                int num7 = 0;
+                                lock (list)
                                 {
-                                    //for (int k = 0; k < list.Count; k++)
-                                    //{
-                                    //    list[k] = (T)(object)ScribeExtractor.ResolveTargetInfo((TargetInfo)(object)list[k], k.ToString());
-                                    //}
-                                    int k = 0;
-                                    lock (list)
+                                    ThreadSafeNode<T> val11 = list.firstNode;
+                                    while (val11 != null)
                                     {
-                                        ThreadSafeNode<T> currentNode = list.firstNode;
-                                        while (currentNode != null)
-                                        {
-                                            currentNode.value = (T)(object)ScribeExtractor.ResolveTargetInfo((TargetInfo)(object)currentNode.value, k.ToString());
-                                            currentNode = currentNode.nextNode;
-                                            k++;
-                                        }
+                                        val11.value = (T)(object)ScribeExtractor.ResolveTargetInfo((TargetInfo)(object)val11.value, num7.ToString());
+                                        val11 = val11.nextNode;
+                                        num7++;
                                     }
+                                    break;
                                 }
-                                break;
-                            case LookMode.GlobalTargetInfo:
-                                if (list != null)
+                            }
+                            break;
+                        case LookMode.GlobalTargetInfo:
+                            if (list != null)
+                            {
+                                int num5 = 0;
+                                lock (list)
                                 {
-                                    //for (int i = 0; i < list.Count; i++)
-                                    //{
-                                    //    list[i] = (T)(object)ScribeExtractor.ResolveGlobalTargetInfo((GlobalTargetInfo)(object)list[i], i.ToString());
-                                    //}
-                                    int i = 0;
-                                    lock (list)
+                                    ThreadSafeNode<T> val9 = list.firstNode;
+                                    while (val9 != null)
                                     {
-                                        ThreadSafeNode<T> currentNode = list.firstNode;
-                                        while (currentNode != null)
-                                        {
-                                            currentNode.value = (T)(object)ScribeExtractor.ResolveGlobalTargetInfo((GlobalTargetInfo)(object)currentNode.value, i.ToString());
-                                            currentNode = currentNode.nextNode;
-                                            i++;
-                                        }
+                                        val9.value = (T)(object)ScribeExtractor.ResolveGlobalTargetInfo((GlobalTargetInfo)(object)val9.value, num5.ToString());
+                                        val9 = val9.nextNode;
+                                        num5++;
                                     }
+                                    break;
                                 }
-                                break;
-                        }
-                        return;
+                            }
+                            break;
+                        case LookMode.Def:
+                            break;
                     }
                 }
-                finally
-                {
-                    Scribe.ExitNode();
-                }
+                return;
             }
-            else if (Scribe.mode == LoadSaveMode.LoadingVars)
+            finally
             {
-                if (lookMode == LookMode.Reference)
-                {
-                    Scribe.loader.crossRefs.loadIDs.RegisterLoadIDListReadFromXml(null, label);
-                }
-                list = null;
+                Scribe.ExitNode();
             }
         }
-        public static ThreadSafeLinkedList<T> TakeResolvedRefList<T>(CrossRefHandler __instance, string toAppendToPathRelToParent)
+        if (Scribe.mode == LoadSaveMode.LoadingVars)
         {
-            string text = Scribe.loader.curPathRelToParent;
-            if (!toAppendToPathRelToParent.NullOrEmpty())
+            if (lookMode == LookMode.Reference)
             {
-                text = text + "/" + toAppendToPathRelToParent;
+                Scribe.loader.crossRefs.loadIDs.RegisterLoadIDListReadFromXml(null, label);
             }
-            return TakeResolvedRefList<T>(__instance, text, Scribe.loader.curParent);
+            list = null;
         }
+    }
 
-        public static FieldRef<CrossRefHandler, LoadedObjectDirectory> loadedObjectDirectoryRef = FieldRefAccess<CrossRefHandler, LoadedObjectDirectory>("loadedObjectDirectory");
-
-        public static ThreadSafeLinkedList<T> TakeResolvedRefList<T>(CrossRefHandler __instance, string pathRelToParent, IExposable parent)
+    public static ThreadSafeLinkedList<T> TakeResolvedRefList<T>(CrossRefHandler __instance, string toAppendToPathRelToParent)
+    {
+        string text = Scribe.loader.curPathRelToParent;
+        if (!toAppendToPathRelToParent.NullOrEmpty())
         {
-            List<string> list = __instance.loadIDs.TakeList(pathRelToParent, parent);
-            ThreadSafeLinkedList<T> list2 = new ThreadSafeLinkedList<T>();
-            if (list != null)
-            {
-                for (int i = 0; i < list.Count; i++)
-                {
-                    list2.Add(loadedObjectDirectoryRef(__instance).ObjectWithLoadID<T>(list[i]));
-                }
-            }
-            return list2;
+            text = text + "/" + toAppendToPathRelToParent;
         }
+        return TakeResolvedRefList<T>(__instance, text, Scribe.loader.curParent);
+    }
 
+    public static ThreadSafeLinkedList<T> TakeResolvedRefList<T>(CrossRefHandler __instance, string pathRelToParent, IExposable parent)
+    {
+        List<string> list = __instance.loadIDs.TakeList(pathRelToParent, parent);
+        ThreadSafeLinkedList<T> val = new ThreadSafeLinkedList<T>();
+        if (list != null)
+        {
+            for (int i = 0; i < list.Count; i++)
+            {
+                val.Add(loadedObjectDirectoryRef.Invoke(__instance).ObjectWithLoadID<T>(list[i]));
+            }
+        }
+        return val;
     }
 }
