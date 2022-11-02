@@ -10,8 +10,8 @@
     <PackageId>majorhoff.ThreadSafeLinkedListRW</PackageId>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>ThreadSafeLinkedList, ThreadSafeLinkedListRW, LinkedList, Thread, Safe, List, RimWorld, Scribe_Collections, Scribe, Collections</PackageTags>
-    <Version>1.5.0</Version>
-    <AssemblyVersion>1.5.0.0</AssemblyVersion>
+    <Version>1.5.1</Version>
+    <AssemblyVersion>1.5.1.0</AssemblyVersion>
   </PropertyGroup>
 
   <ItemGroup>
